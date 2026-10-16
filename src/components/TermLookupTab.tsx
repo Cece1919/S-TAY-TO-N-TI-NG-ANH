@@ -23,7 +23,7 @@ import { MathTerm, CategoryId } from '../types/math';
 import { CATEGORIES } from '../data/mathVocabData';
 import { lookupAndGenerateMathTerm } from '../utils/offlineBrain';
 import { speakEnglish, playChime } from '../utils/speech';
-import { MathView } from './MathView';
+import { MathView, MathText } from './MathView';
 import { GeometryDiagram, isGeometryTerm } from './GeometryDiagram';
 
 interface TermLookupTabProps {
@@ -208,58 +208,18 @@ export const TermLookupTab: React.FC<TermLookupTabProps> = ({
             </p>
           </div>
 
-          {/* Quick API Key toggle */}
-          <button
-            onClick={() => setShowApiKeyInput(!showApiKeyInput)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-xl border font-medium cursor-pointer transition-colors self-start md:self-auto ${
-              isPaper
-                ? 'bg-white border-[#dfd9ce] text-slate-700 hover:bg-amber-50/50'
-                : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
-            }`}
-          >
-            <Key className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-            <span>{savedApiKey ? 'Đã cài Gemini Key' : 'Tùy chọn Gemini Key'}</span>
-          </button>
-        </div>
-
-        {/* Expandable API Key Box */}
-        {showApiKeyInput && (
+          {/* Online AI status */}
           <div
-            className={`mt-4 p-4 rounded-xl border text-xs space-y-3 ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-xl border font-medium self-start md:self-auto ${
               isPaper
-                ? 'bg-amber-50/50 border-amber-200/80 text-slate-700'
-                : 'bg-slate-900/80 border-slate-800 text-slate-300'
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                : 'bg-emerald-950/40 border-emerald-800 text-emerald-300'
             }`}
           >
-            <div className="flex items-center justify-between">
-              <span className="font-semibold flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-purple-600" /> Cấu hình Gemini AI Key (Không bắt buộc)
-              </span>
-              <span className={`text-[11px] ${isPaper ? 'text-slate-500' : 'text-slate-400'}`}>
-                Hệ thống luôn có sẵn Offline Fallback Brain hoạt động 100% ngoại tuyến
-              </span>
-            </div>
-            <div className="flex gap-2">
-              <input
-                type="password"
-                value={apiKeyInput}
-                onChange={(e) => setApiKeyInput(e.target.value)}
-                placeholder="Dán Gemini API Key (AIzaSy...)"
-                className={`flex-1 px-3 py-1.5 rounded-lg border text-xs focus:outline-none ${
-                  isPaper
-                    ? 'bg-white border-[#d8d3c8] text-slate-900 focus:border-indigo-500'
-                    : 'bg-slate-950 border-slate-800 text-white focus:border-indigo-400'
-                }`}
-              />
-              <button
-                onClick={handleSaveKey}
-                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium cursor-pointer transition-colors"
-              >
-                Lưu
-              </button>
-            </div>
+            <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span>AI Tra Cứu Trực Tuyến</span>
           </div>
-        )}
+        </div>
 
         {/* Search Input Bar */}
         <div className="mt-5">
@@ -610,9 +570,9 @@ export const TermLookupTab: React.FC<TermLookupTabProps> = ({
                 </button>
               </div>
 
-              <p className={`text-xs md:text-sm font-medium leading-relaxed ${isPaper ? 'text-slate-800' : 'text-slate-200'}`}>
-                {currentResult.olympiadWordProblem}
-              </p>
+              <div className={`text-xs md:text-sm font-medium leading-relaxed ${isPaper ? 'text-slate-800' : 'text-slate-200'}`}>
+                <MathText text={currentResult.olympiadWordProblem} />
+              </div>
 
               {/* Collapsible Solution */}
               <div className="pt-2 border-t border-dashed border-[#eee8dc] dark:border-slate-800">
@@ -639,8 +599,8 @@ export const TermLookupTab: React.FC<TermLookupTabProps> = ({
                     <div className="font-semibold text-indigo-600 dark:text-indigo-400 mb-1">
                       Phương pháp giải toán Olympic:
                     </div>
-                    <div className="whitespace-pre-line font-academic-serif">
-                      {currentResult.solution}
+                    <div className="font-academic-serif">
+                      <MathText text={currentResult.solution} />
                     </div>
                   </div>
                 )}
@@ -659,9 +619,9 @@ export const TermLookupTab: React.FC<TermLookupTabProps> = ({
                 <HelpCircle className="w-3.5 h-3.5" />
                 <span>Gốc Từ Ngôn Ngữ & Mẹo Ghi Nhớ Sâu (Etymology & Mnemonic):</span>
               </div>
-              <p className="text-xs leading-relaxed italic">
-                {currentResult.etymology}
-              </p>
+              <div className="text-xs leading-relaxed italic">
+                <MathText text={currentResult.etymology} />
+              </div>
             </div>
 
             {/* Bottom Add Action Prompt */}

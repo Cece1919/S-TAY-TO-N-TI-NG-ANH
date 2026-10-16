@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Search, Plus, Eye, EyeOff, Volume2, Sparkles, X, BookOpen, ChevronRight, Award } from 'lucide-react';
 import { MathTerm, CardProgressMap, CategoryId } from '../types/math';
 import { CATEGORIES } from '../data/mathVocabData';
-import { MathView } from './MathView';
+import { MathView, MathText } from './MathView';
 import { GeometryDiagram, isGeometryTerm } from './GeometryDiagram';
 import { speakEnglish } from '../utils/speech';
 import { isCardDue, getCardMasteryLevel, getTodayString } from '../utils/sm2';
@@ -549,16 +549,16 @@ export const VocabLibraryTab: React.FC<VocabLibraryTabProps> = ({
                   Bài toán Olympic thực tế ({detailModalTerm.olympiadExam})
                 </span>
               </div>
-              <p className={`text-xs italic leading-relaxed font-serif ${isPaper ? 'text-slate-800' : 'text-slate-200'}`}>
-                "{detailModalTerm.olympiadWordProblem}"
-              </p>
+              <div className={`text-xs italic leading-relaxed font-serif ${isPaper ? 'text-slate-800' : 'text-slate-200'}`}>
+                <MathText text={detailModalTerm.olympiadWordProblem} />
+              </div>
               <div className={`pt-2 border-t text-xs ${isPaper ? 'border-[#eee8dc]' : 'border-slate-900'}`}>
                 <span className={`font-semibold block mb-1 ${isPaper ? 'text-emerald-800' : 'text-emerald-400'}`}>
                   Lời giải chi tiết:
                 </span>
-                <p className={`leading-relaxed ${isPaper ? 'text-slate-700' : 'text-slate-300'}`}>
-                  {detailModalTerm.solution}
-                </p>
+                <div className={`leading-relaxed ${isPaper ? 'text-slate-700' : 'text-slate-300'}`}>
+                  <MathText text={detailModalTerm.solution} />
+                </div>
               </div>
             </div>
 

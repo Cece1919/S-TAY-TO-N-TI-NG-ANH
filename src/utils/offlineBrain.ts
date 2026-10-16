@@ -1,4 +1,3 @@
-import { GoogleGenAI } from '@google/genai';
 import { MathTerm } from '../types/math';
 
 export interface GeneratedProblem {
@@ -131,45 +130,23 @@ export const OFFLINE_PROBLEMS_BANK: Record<string, GeneratedProblem[]> = {
 export async function generateOlympiadProblem(
   term: MathTerm,
   customExam: string = 'TIMO / SASMO',
-  apiKey?: string
+  _apiKey?: string
 ): Promise<GeneratedProblem> {
-  // If user provided Gemini API key or environment has one
-  const activeKey = apiKey || (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) || '';
-
-  if (activeKey && activeKey !== 'MY_GEMINI_API_KEY') {
-    try {
-      const ai = new GoogleGenAI({ apiKey: activeKey });
-      const prompt = `You are a Senior Olympiad Math Coach preparing problems for middle school students (Grades 6-9) for competitions like ${customExam}.
-Create a high-quality, authentic math contest word problem focusing on the concept: "${term.term}" (${term.vietnameseMeaning}).
-
-Return ONLY a valid JSON object strictly matching this schema:
-{
-  "title": "Short catchy title in Vietnamese",
-  "olympiadExam": "${customExam} Grade 6-8",
-  "gradeLevel": "Lớp 6-8",
-  "problemEn": "The full Olympiad problem statement in clear academic English",
-  "problemVi": "Bản dịch tiếng Việt chính xác và sư phạm của bài toán",
-  "hints": ["Gợi ý 1 bằng tiếng Việt", "Gợi ý 2 bằng tiếng Việt"],
-  "solutionSteps": ["Bước 1 lời giải chi tiết", "Bước 2 lời giải chi tiết", "Bước 3 kết luận"],
-  "finalAnswer": "Đáp số cuối cùng (kèm đơn vị nếu có)"
-}`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-          temperature: 0.7,
-        },
-      });
-
-      if (response.text) {
-        const parsed = JSON.parse(response.text) as GeneratedProblem;
-        return parsed;
+  // 1. Try server-side Gemini AI
+  try {
+    const res = await fetch('/api/ai/generate-problem', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ term, exam: customExam }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.problem) {
+        return data.problem;
       }
-    } catch (err) {
-      console.warn('Gemini API call failed, falling back to Offline Brain:', err);
     }
+  } catch (err) {
+    console.warn('Online problem generator call failed, falling back to Offline Brain:', err);
   }
 
   // Fallback to Offline Brain
@@ -222,47 +199,36 @@ export function getEtymologyInfo(term: MathTerm): EtymologyDetail {
 export async function askAiTutor(
   userQuery: string,
   currentTerm?: MathTerm,
-  apiKey?: string
+  _apiKey?: string
 ): Promise<string> {
-  const activeKey = apiKey || (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) || '';
-
-  if (activeKey && activeKey !== 'MY_GEMINI_API_KEY') {
-    try {
-      const ai = new GoogleGenAI({ apiKey: activeKey });
-      const prompt = `Bạn là Trợ lý Gia sư Toán Olympic và Tiếng Anh chuyên biệt (Math M32 Copilot).
-Đối tượng: Học sinh THCS Việt Nam (lớp 6-9) đang học Toán song ngữ và ôn thi TIMO, ASMO, SASMO, HKIMO.
-${currentTerm ? `Thuật ngữ đang xem xét: "${currentTerm.term}" (${currentTerm.vietnameseMeaning}) - Công thức: ${currentTerm.formulaOrRule}` : ''}
-Câu hỏi của học sinh: "${userQuery}"
-
-Hướng dẫn:
-- Trả lời bằng tiếng Việt sư phạm, ấm áp, logic, có đính kèm thuật ngữ tiếng Anh trong ngoặc.
-- Nếu có bài toán, hướng dẫn phương pháp tư duy từng bước thay vì chỉ đưa đáp số.
-- Ngắn gọn, súc tích (dưới 200 từ), dễ hiểu đối với học sinh lớp 6-9.`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-      });
-
-      if (response.text) {
-        return response.text;
+  // 1. Try server-side Gemini AI Tutor
+  try {
+    const res = await fetch('/api/ai/ask-tutor', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: userQuery, currentTerm }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.reply) {
+        return data.reply;
       }
-    } catch (e) {
-      console.warn('Gemini chat failed, fallback to offline tutor:', e);
     }
+  } catch (e) {
+    console.warn('Online AI chat failed, falling back to smart offline tutor:', e);
   }
 
   // Smart Offline Tutor response
   const queryLower = userQuery.toLowerCase();
 
   if (queryLower.includes('nguyên tố') || queryLower.includes('prime')) {
-    return `Chào bạn! Về số nguyên tố (Prime number): Hãy nhớ rằng số 2 là số nguyên tố duy nhất chẵn và cũng là số nguyên tố nhỏ nhất. Để kiểm tra số N có là số nguyên tố không, ta chỉ cần thử chia cho các số nguyên tố nhỏ hơn hoặc bằng √N. Đây là "mẹo vàng" trong các đề thi TIMO/SASMO!`;
+    return `Chào bạn! Về số nguyên tố (Prime number): Hãy nhớ rằng $p = 2$ là số nguyên tố duy nhất chẵn và cũng là số nguyên tố nhỏ nhất. Để kiểm tra số $N$ có là số nguyên tố hay không, ta chỉ cần thử chia cho các số nguyên tố $p \\le \\sqrt{N}$. Đây là "mẹo vàng" trong các đề thi TIMO/SASMO!`;
   }
   if (queryLower.includes('chuồng bồ câu') || queryLower.includes('dirichlet') || queryLower.includes('pigeonhole')) {
-    return `Nguyên lý Dirichlet (Pigeonhole principle) là tuyệt chiêu trong đề thi Olympic! Bí quyết là xét "tình huống xấu nhất" (worst-case scenario): giả sử bạn chia đều các phần tử vào các chuồng sao cho chưa đạt mục tiêu, phần tử tiếp theo chắc chắn sẽ giúp bạn hoàn thành yêu cầu!`;
+    return `Nguyên lý Dirichlet (Pigeonhole principle): Nếu có $n+1$ chú bồ câu nhốt vào $n$ chiếc chuồng, thì luôn tồn tại ít nhất một chuồng chứa từ $\\ge 2$ chú chim! Bí quyết trong bài thi Olympic là xét "tình huống xấu nhất" (worst-case scenario).`;
   }
   if (queryLower.includes('pythagoras') || queryLower.includes('cạnh huyền') || queryLower.includes('tam giác vuông')) {
-    return `Trong hình học Olympic, hãy nhớ các bộ ba số Pythagoras kinh điển (Pythagorean triples): (3, 4, 5), (5, 12, 13), (7, 24, 25), (8, 15, 17) và các bội số của chúng. Nhận ra các bộ này sẽ giúp bạn giải đề thi trắc nghiệm siêu nhanh!`;
+    return `Trong hình học Olympic, định lý Pythagoras khẳng định trong tam giác vuông: $a^2 + b^2 = c^2$ (với $c$ là cạnh huyền hypotenuse). Hãy nhớ các bộ ba số Pythagoras kinh điển (Pythagorean triples): $(3, 4, 5)$, $(5, 12, 13)$, $(7, 24, 25)$, $(8, 15, 17)$ và các bội số $k \\cdot (3, 4, 5)$ để giải siêu tốc!`;
   }
   if (queryLower.includes('công thức') || queryLower.includes('formula')) {
     return `Để nhớ công thức toán học lâu dài, bạn đừng học vẹt! Hãy dùng phương pháp Spaced Repetition (Lặp lại ngắt quãng) của ứng dụng này: bấm "Nhớ tốt" hoặc "Dễ" để não bộ củng cố vào các khoảng thời gian tối ưu 1 ngày, 3 ngày, 7 ngày...`;
@@ -671,90 +637,41 @@ const OFFLINE_LOOKUP_MAP: Record<string, Partial<MathTerm>> = {
  */
 export async function lookupAndGenerateMathTerm(
   query: string,
-  apiKey?: string
+  _apiKey?: string
 ): Promise<MathTerm> {
   const cleanQuery = query.trim();
   const lowerQuery = cleanQuery.toLowerCase();
-  
-  // Resolve API key from param or Vite/Process env
-  const activeKey =
-    apiKey ||
-    (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_GEMINI_API_KEY) ||
-    (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) ||
-    '';
 
-  // 1. Try Gemini AI if valid API key is present
-  if (activeKey && activeKey !== 'MY_GEMINI_API_KEY' && activeKey.length > 5) {
-    try {
-      const ai = new GoogleGenAI({ apiKey: activeKey });
-      const prompt = `You are an expert Olympiad Math Coach & Bilingual Curriculum Designer for middle school students (Grades 6-9) preparing for competitions like TIMO, ASMO, SASMO, HKIMO.
-
-The user is searching for the mathematical term or concept: "${cleanQuery}" (could be in English or Vietnamese).
-
-Generate a complete, rigorous, high-quality MathTerm JSON object for this concept.
-Strict requirements:
-- term: Official English title case term (e.g. "Inscribed circle", "Pythagorean triple", "Geometric progression")
-- category: Exactly one of ["number_theory", "geometry", "algebra", "combinatorics"]
-- phonetic: Standard IPA phonetics notation (e.g. "/ɪnˈskraɪbd ˈsɜː.kəl/")
-- partOfSpeech: "noun" | "noun phrase" | "adjective"
-- vietnameseMeaning: Accurate, standard Vietnamese math term (e.g. "Đường tròn nội tiếp")
-- mathDefinition: Formal, clear English definition (1-2 sentences)
-- vietnameseDefinition: Clear pedagogical Vietnamese math explanation
-- formulaOrRule: Standard mathematical formula or theorem in clean KaTeX LaTeX format (e.g. "r = \\\\frac{A}{s}; \\\\quad s = \\\\frac{a+b+c}{2}")
-- olympiadWordProblem: A realistic contest word problem from TIMO, ASMO, SASMO, or HKIMO in English with Vietnamese translation in parentheses
-- solution: Step-by-step mathematical reasoning and final answer
-- etymology: Greek / Latin root words, historical context, and mnemonic memory hook for students
-- targetGrades: "Lớp 6 - 9" (or specific grades like "Lớp 7 - 8")
-- olympiadExam: "TIMO / SASMO" (or "ASMO", "HKIMO")
-
-Return ONLY a valid JSON object matching this schema without any markdown formatting around it:
-{
-  "term": "...",
-  "category": "geometry",
-  "phonetic": "...",
-  "partOfSpeech": "noun",
-  "vietnameseMeaning": "...",
-  "mathDefinition": "...",
-  "vietnameseDefinition": "...",
-  "formulaOrRule": "...",
-  "olympiadWordProblem": "...",
-  "solution": "...",
-  "etymology": "...",
-  "targetGrades": "Lớp 6 - 9",
-  "olympiadExam": "TIMO / SASMO"
-}`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-          temperature: 0.5,
-        },
-      });
-
-      if (response.text) {
-        const parsed = JSON.parse(response.text);
+  // 1. Try server-side Gemini AI
+  try {
+    const res = await fetch('/api/ai/lookup-term', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: cleanQuery }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.term) {
         return {
           id: `ai_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-          term: parsed.term || cleanQuery,
-          category: parsed.category || 'geometry',
-          phonetic: parsed.phonetic || '/ˈmæθ.tɜːm/',
-          partOfSpeech: parsed.partOfSpeech || 'noun',
-          vietnameseMeaning: parsed.vietnameseMeaning || cleanQuery,
-          mathDefinition: parsed.mathDefinition || 'Mathematical definition.',
-          vietnameseDefinition: parsed.vietnameseDefinition || 'Định nghĩa toán học.',
-          formulaOrRule: parsed.formulaOrRule || 'A = b \\cdot h',
-          olympiadWordProblem: parsed.olympiadWordProblem || 'Olympiad problem.',
-          solution: parsed.solution || 'Solution steps.',
-          etymology: parsed.etymology || 'Greek / Latin root.',
-          targetGrades: parsed.targetGrades || 'Lớp 6 - 9',
-          olympiadExam: parsed.olympiadExam || 'TIMO / SASMO',
+          term: data.term.term || cleanQuery,
+          category: data.term.category || 'geometry',
+          phonetic: data.term.phonetic || '/ˈmæθ.tɜːm/',
+          partOfSpeech: data.term.partOfSpeech || 'noun',
+          vietnameseMeaning: data.term.vietnameseMeaning || cleanQuery,
+          mathDefinition: data.term.mathDefinition || 'Mathematical definition.',
+          vietnameseDefinition: data.term.vietnameseDefinition || 'Định nghĩa toán học.',
+          formulaOrRule: data.term.formulaOrRule || 'A = b \\cdot h',
+          olympiadWordProblem: data.term.olympiadWordProblem || 'Olympiad contest problem.',
+          solution: data.term.solution || 'Solution steps.',
+          etymology: data.term.etymology || 'Greek / Latin root.',
+          targetGrades: data.term.targetGrades || 'Lớp 6 - 9',
+          olympiadExam: data.term.olympiadExam || 'TIMO / SASMO',
         };
       }
-    } catch (err) {
-      console.warn('Gemini lookup failed, trying offline database:', err);
     }
+  } catch (err) {
+    console.warn('Online Gemini lookup failed, trying offline database:', err);
   }
 
   // 2. Check Offline Lookup Map (exact or substring match)

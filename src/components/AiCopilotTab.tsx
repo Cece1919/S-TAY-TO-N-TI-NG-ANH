@@ -9,6 +9,7 @@ import {
   askAiTutor,
 } from '../utils/offlineBrain';
 import { speakEnglish } from '../utils/speech';
+import { MathView, MathText } from './MathView';
 
 interface AiCopilotTabProps {
   terms: MathTerm[];
@@ -149,46 +150,31 @@ export const AiCopilotTab: React.FC<AiCopilotTabProps> = ({
                 Trợ Lý Toán Học & Sinh Đề Olympic (AI Math Copilot)
               </h2>
               <span
-                className={`text-[11px] font-mono px-2 py-0.5 rounded border ${
+                className={`text-[11px] font-mono px-2 py-0.5 rounded border flex items-center gap-1.5 ${
                   isPaper
-                    ? 'bg-[#f7f4ec] text-slate-700 border-[#ded8cb]'
-                    : 'bg-slate-950 text-slate-300 border-slate-800'
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                    : 'bg-emerald-950/40 text-emerald-300 border-emerald-800'
                 }`}
               >
-                {savedApiKey ? 'Gemini AI Sẵn sàng' : 'Kho Tri Thức Offline Sẵn sàng'}
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>AI Online Sẵn sàng</span>
               </span>
             </div>
             <p className={`text-xs mt-1 ${isPaper ? 'text-slate-500' : 'text-slate-400'}`}>
-              Hệ thống tạo đề toán thi Olympic quốc tế, phân tích từ nguyên học thuật và giải đáp sư phạm.
+              Hệ thống kết nối AI online hỗ trợ giải đáp toán học tức thì, chính xác, khoa học và sinh đề thi Olympic quốc tế.
             </p>
           </div>
 
-          {/* Key input */}
+          {/* AI Connection status indicator */}
           <div
-            className={`flex items-center gap-2 p-1.5 rounded-xl border text-xs ${
-              isPaper ? 'bg-[#fcfbf9] border-[#ded8cb]' : 'bg-slate-950 border-slate-800'
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-medium ${
+              isPaper
+                ? 'bg-emerald-50/70 border-emerald-200 text-emerald-800'
+                : 'bg-emerald-950/40 border-emerald-800 text-emerald-300'
             }`}
           >
-            <Key className={`w-3.5 h-3.5 ml-2 ${isPaper ? 'text-slate-400' : 'text-slate-400'}`} />
-            <input
-              type="password"
-              placeholder="Gemini API Key (tùy chọn)"
-              value={apiKeyInput}
-              onChange={(e) => setApiKeyInput(e.target.value)}
-              className={`bg-transparent placeholder-slate-400 focus:outline-none w-44 font-mono text-[11px] ${
-                isPaper ? 'text-slate-900' : 'text-slate-200'
-              }`}
-            />
-            <button
-              onClick={handleSaveKey}
-              className={`px-3 py-1 rounded-lg font-medium transition-colors cursor-pointer border text-xs ${
-                isPaper
-                  ? 'bg-white hover:bg-slate-100 text-slate-700 border-[#ddd7cc]'
-                  : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
-              }`}
-            >
-              {isKeySaved ? 'Đã lưu' : 'Lưu Key'}
-            </button>
+            <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span>Trực tuyến 24/7 (Gemini AI)</span>
           </div>
         </div>
 
@@ -349,9 +335,9 @@ export const AiCopilotTab: React.FC<AiCopilotTabProps> = ({
                 <span className={`text-[11px] font-mono uppercase block mb-1 ${isPaper ? 'text-slate-500' : 'text-slate-400'}`}>
                   Problem Statement (English):
                 </span>
-                <p className={`text-base font-serif italic leading-relaxed ${isPaper ? 'text-slate-900' : 'text-slate-100'}`}>
-                  "{generatedProblem.problemEn}"
-                </p>
+                <div className={`text-base font-serif italic leading-relaxed ${isPaper ? 'text-slate-900' : 'text-slate-100'}`}>
+                  <MathText text={generatedProblem.problemEn} />
+                </div>
               </div>
 
               {/* Vietnamese Translation */}
@@ -363,7 +349,7 @@ export const AiCopilotTab: React.FC<AiCopilotTabProps> = ({
                 <span className={`text-[11px] font-mono uppercase block mb-1 ${isPaper ? 'text-slate-500' : 'text-slate-400'}`}>
                   Bản dịch tiếng Việt sư phạm:
                 </span>
-                <p>{generatedProblem.problemVi}</p>
+                <MathText text={generatedProblem.problemVi} />
               </div>
 
               {/* Hints */}
@@ -387,7 +373,9 @@ export const AiCopilotTab: React.FC<AiCopilotTabProps> = ({
                     {generatedProblem.hints.map((hint, idx) => (
                       <div key={idx} className="flex items-start gap-2">
                         <span className="font-mono font-semibold">[{idx + 1}]</span>
-                        <span>{hint}</span>
+                        <div className="flex-1 leading-relaxed">
+                          <MathText text={hint} />
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -417,13 +405,15 @@ export const AiCopilotTab: React.FC<AiCopilotTabProps> = ({
                     <span className={`text-[11px] font-semibold uppercase tracking-wide block ${isPaper ? 'text-slate-600' : 'text-slate-400'}`}>
                       Các bước lập luận giải toán:
                     </span>
-                    <div className={`space-y-1.5 ${isPaper ? 'text-slate-800' : 'text-slate-300'}`}>
+                    <div className={`space-y-2 ${isPaper ? 'text-slate-800' : 'text-slate-300'}`}>
                       {generatedProblem.solutionSteps.map((step, idx) => (
                         <div key={idx} className="flex items-start gap-2.5">
                           <span className="font-mono text-[11px] font-semibold">
                             {idx + 1}.
                           </span>
-                          <span className="leading-relaxed">{step}</span>
+                          <div className="leading-relaxed flex-1">
+                            <MathText text={step} />
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -437,7 +427,7 @@ export const AiCopilotTab: React.FC<AiCopilotTabProps> = ({
                             : 'text-emerald-300 bg-slate-900 border-slate-800'
                         }`}
                       >
-                        {generatedProblem.finalAnswer}
+                        <MathText text={generatedProblem.finalAnswer} />
                       </span>
                     </div>
                   </div>
@@ -568,7 +558,11 @@ export const AiCopilotTab: React.FC<AiCopilotTabProps> = ({
                       : 'bg-slate-950 text-slate-200 border-slate-800'
                   }`}
                 >
-                  <p className="whitespace-pre-line">{msg.text}</p>
+                  <MathText
+                    text={msg.text}
+                    className="leading-relaxed"
+                    inlineFormulaClassName={msg.sender === 'user' ? 'text-white' : undefined}
+                  />
                   <span className={`block text-[10px] mt-1.5 text-right font-mono ${msg.sender === 'user' ? 'text-indigo-200' : isPaper ? 'text-slate-500' : 'text-slate-500'}`}>
                     {msg.timestamp}
                   </span>

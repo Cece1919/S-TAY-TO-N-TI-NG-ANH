@@ -3,7 +3,7 @@ import confetti from 'canvas-confetti';
 import { Volume2, RotateCw, CheckCircle, ChevronDown, ChevronUp, Sparkles, Award } from 'lucide-react';
 import { MathTerm, CardProgressMap, CategoryId } from '../types/math';
 import { CATEGORIES } from '../data/mathVocabData';
-import { MathView } from './MathView';
+import { MathView, MathText } from './MathView';
 import { GeometryDiagram, isGeometryTerm } from './GeometryDiagram';
 import { previewNextIntervals, isCardDue, getTodayString } from '../utils/sm2';
 import { speakEnglish, playAudioFeedback } from '../utils/speech';
@@ -610,9 +610,9 @@ export const FlashcardTab: React.FC<FlashcardTabProps> = ({
                         <span>Nghe đề</span>
                       </button>
                     </div>
-                    <p className={`text-xs leading-relaxed italic mb-2 font-serif ${isPaper ? 'text-slate-800' : 'text-slate-300'}`}>
-                      "{currentTerm.olympiadWordProblem}"
-                    </p>
+                    <div className={`text-xs leading-relaxed italic mb-2 font-serif ${isPaper ? 'text-slate-800' : 'text-slate-300'}`}>
+                      <MathText text={currentTerm.olympiadWordProblem} />
+                    </div>
 
                     {/* Expandable Solution */}
                     <div className={`pt-2 border-t ${isPaper ? 'border-[#eee8dc]' : 'border-slate-900'}`}>
@@ -640,7 +640,7 @@ export const FlashcardTab: React.FC<FlashcardTabProps> = ({
                           <p className={`font-semibold ${isPaper ? 'text-emerald-900' : 'text-emerald-400'}`}>
                             Hướng dẫn giải chi tiết:
                           </p>
-                          <p>{currentTerm.solution}</p>
+                          <MathText text={currentTerm.solution} />
                         </div>
                       )}
                     </div>

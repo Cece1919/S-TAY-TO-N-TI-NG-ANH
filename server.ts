@@ -3,6 +3,8 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
+import 'dotenv/config';
+import { GoogleGenAI } from '@google/genai';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -78,6 +80,45 @@ function verifyToken(token: string | undefined): string | null {
     return null;
   }
   return session.email;
+}
+
+function getGeminiClient(): GoogleGenAI | null {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+  return new GoogleGenAI({
+    apiKey,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      },
+    },
+  });
+}
+
+async function generateWithFallback(client: GoogleGenAI, prompt: string, config?: any) {
+  const candidateModels = [
+    'gemini-flash-lite-latest',
+    'gemini-3-flash-preview',
+    'gemini-3.8-flash',
+    'gemini-flash-latest',
+  ];
+  let lastError: any = null;
+  for (const model of candidateModels) {
+    try {
+      const response = await client.models.generateContent({
+        model,
+        contents: prompt,
+        config,
+      });
+      if (response && response.text) {
+        return response;
+      }
+    } catch (err: any) {
+      lastError = err;
+      console.warn(`Model ${model} unavailable (${err?.message || err}), trying alternative model...`);
+    }
+  }
+  throw lastError;
 }
 
 async function startServer() {
@@ -280,6 +321,216 @@ async function startServer() {
     } catch (err: any) {
       console.error('Sync pull error:', err);
       return res.status(500).json({ error: 'Không thể tải dữ liệu từ máy chủ.' });
+    }
+  });
+
+  // 6. Natural Human Text-to-Speech (Gemini TTS)
+  app.post('/api/ai/tts', async (req, res) => {
+    try {
+      const { text, voice } = req.body;
+      if (!text || typeof text !== 'string') {
+        return res.status(400).json({ error: 'Text is required for TTS' });
+      }
+
+      const client = getGeminiClient();
+      if (!client) {
+        return res.status(503).json({ error: 'Gemini API not configured on server' });
+      }
+
+      const cleanText = text.slice(0, 600);
+      const response = await client.models.generateContent({
+        model: 'gemini-3.8-flash-lite-tts',
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                text: cleanText,
+                speechMetadata: {
+                  style: 'Clear, natural, articulate academic English teacher with warm educational cadence',
+                },
+              },
+            ],
+          },
+        ],
+        config: {
+          responseModalities: ['AUDIO'],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: voice || 'Kore' },
+            },
+          },
+        },
+      });
+
+      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      if (base64Audio) {
+        const audioBuffer = Buffer.from(base64Audio, 'base64');
+        res.setHeader('Content-Type', 'audio/wav');
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        return res.send(audioBuffer);
+      }
+
+      return res.status(500).json({ error: 'No audio returned from Gemini TTS' });
+    } catch (err: any) {
+      console.warn('TTS generation warning:', err?.message || err);
+      return res.status(500).json({ error: 'Failed to generate TTS audio', details: err?.message });
+    }
+  });
+
+  // 7. AI Online Tutor Chat (Math M32 Copilot)
+  app.post('/api/ai/ask-tutor', async (req, res) => {
+    try {
+      const { question, currentTerm } = req.body;
+      if (!question || typeof question !== 'string') {
+        return res.status(400).json({ error: 'Vui lòng cung cấp câu hỏi' });
+      }
+
+      const client = getGeminiClient();
+      if (!client) {
+        return res.status(503).json({ error: 'Gemini API chưa sẵn sàng trên máy chủ' });
+      }
+
+      const prompt = `Bạn là Trợ lý Gia sư Toán Olympic và Tiếng Anh chuyên biệt của Math M32.
+Đối tượng học sinh: Học sinh THCS (lớp 6-9) tại Việt Nam đang học Toán song ngữ và ôn thi các kỳ thi toán quốc tế (TIMO, ASMO, SASMO, HKIMO, AMC).
+
+Yêu cầu giải đáp:
+1. Độ chính xác khoa học tuyệt đối: Định nghĩa, ký hiệu toán học, công thức và suy luận phải chuẩn xác theo chuẩn Olympic quốc tế.
+2. Sư phạm & Khơi gợi tư duy: Không chỉ đưa ra kết quả, hãy phân tích bản chất bài toán, hướng dẫn phương pháp suy luận từng bước (phản chứng, nguyên lý Dirichlet, tính chẵn lẻ, biến đổi đại số, bất đẳng thức, hình học trực quan...).
+3. Song ngữ Anh - Việt: Kèm theo các thuật ngữ toán tiếng Anh tương ứng trong ngoặc đơn (ví dụ: số nguyên tố (prime number), ước chung lớn nhất (greatest common divisor - GCD), tam giác vuông (right triangle), cạnh huyền (hypotenuse)...) để học sinh nắm chắc từ vựng học thuật.
+4. Trình bày thân thiện, súc tích (khoảng 150-250 từ), dùng bullet points hoặc các bước rõ ràng.
+5. BẮT BUỘC TRÌNH BÀY CÔNG THỨC TOÁN HỌC BẰNG LATEX / MATHTYPE:
+- Tất cả công thức, phương trình, phân số, luỹ thừa, căn thức, ký hiệu tập hợp PHẢI được viết bằng mã chuẩn LaTeX kẹp giữa cặp dấu $...$ cho công thức nội dòng (ví dụ: $x^2 + y^2 = z^2$, $\\frac{a}{b}$, $\\sqrt{n}$, $a \\le b$, $n \\in \\mathbb{N}$); và $$\\dots$$ cho công thức khối đặt riêng một dòng.
+- Tuyệt đối không viết chữ thô như x/y hay x^2 hay sqrt(n), mà PHẢI viết dạng chuẩn LaTeX như $\\frac{x}{y}$, $x^2$, $\\sqrt{n}$ để hệ thống kết xuất công thức toán học sắc nét, chính xác như MathType.
+
+${currentTerm ? `Chủ đề/Thuật ngữ hiện tại đang học: "${currentTerm.term}" (${currentTerm.vietnameseMeaning}) - Công thức: ${currentTerm.formulaOrRule}` : ''}
+
+Câu hỏi của học sinh:
+"${question}"`;
+
+      const response = await generateWithFallback(client, prompt);
+
+      const reply = response.text || 'Trợ lý đã nhận câu hỏi nhưng chưa có phản hồi. Vui lòng thử lại.';
+      return res.json({ success: true, reply });
+    } catch (err: any) {
+      console.error('AI Tutor chat error:', err);
+      return res.status(500).json({ error: 'Lỗi khi kết nối với AI online', details: err?.message });
+    }
+  });
+
+  // 8. AI Olympiad Problem Generator
+  app.post('/api/ai/generate-problem', async (req, res) => {
+    try {
+      const { term, exam } = req.body;
+      if (!term) {
+        return res.status(400).json({ error: 'Term information required' });
+      }
+
+      const client = getGeminiClient();
+      if (!client) {
+        return res.status(503).json({ error: 'Gemini API not configured' });
+      }
+
+      const customExam = exam || 'TIMO / SASMO';
+      const prompt = `You are a Senior Olympiad Math Coach preparing problems for middle school students (Grades 6-9) for competitions like ${customExam}.
+Create a high-quality, authentic math contest word problem focusing on the concept: "${term.term}" (${term.vietnameseMeaning}).
+
+MANDATORY MATH FORMULA FORMATTING (LaTeX / MathType):
+All mathematical formulas, fractions, powers, roots, equations, and expressions in problemEn, problemVi, hints, solutionSteps, and finalAnswer MUST be formatted in LaTeX enclosed with $...$ (or $$...$$ for block display). E.g. $\\frac{a}{b}$, $x^2 + y^2 = r^2$, $\\sqrt{n}$, $\\angle ABC = 90^\\circ$.
+
+Return ONLY a valid JSON object strictly matching this schema:
+{
+  "title": "Short catchy title in Vietnamese",
+  "olympiadExam": "${customExam} Grade 6-8",
+  "gradeLevel": "Lớp 6-8",
+  "problemEn": "The full Olympiad problem statement in clear academic English with $...$ LaTeX math",
+  "problemVi": "Bản dịch tiếng Việt chính xác và sư phạm của bài toán kèm công thức LaTeX $...$",
+  "hints": ["Gợi ý 1 bằng tiếng Việt kèm công thức $...$", "Gợi ý 2 bằng tiếng Việt"],
+  "solutionSteps": ["Bước 1 lời giải chi tiết kèm công thức $...$", "Bước 2 lời giải chi tiết kèm công thức $...$", "Bước 3 kết luận"],
+  "finalAnswer": "Đáp số cuối cùng dạng LaTeX chuẩn $...$"
+}`;
+
+      const response = await generateWithFallback(client, prompt, {
+        responseMimeType: 'application/json',
+        temperature: 0.7,
+      });
+
+      if (response.text) {
+        const problem = JSON.parse(response.text);
+        return res.json({ success: true, problem });
+      }
+
+      return res.status(500).json({ error: 'No data returned from AI' });
+    } catch (err: any) {
+      console.error('Problem generation error:', err);
+      return res.status(500).json({ error: 'Lỗi khi tạo đề bài với AI', details: err?.message });
+    }
+  });
+
+  // 9. AI Term Lookup & Synthesis
+  app.post('/api/ai/lookup-term', async (req, res) => {
+    try {
+      const { query } = req.body;
+      if (!query || typeof query !== 'string') {
+        return res.status(400).json({ error: 'Vui lòng cung cấp thuật ngữ cần tra cứu' });
+      }
+
+      const client = getGeminiClient();
+      if (!client) {
+        return res.status(503).json({ error: 'Gemini API not configured' });
+      }
+
+      const prompt = `You are an expert Olympiad Math Coach & Bilingual Curriculum Designer for middle school students (Grades 6-9) preparing for competitions like TIMO, ASMO, SASMO, HKIMO.
+
+The user is searching for the mathematical term or concept: "${query}" (could be in English or Vietnamese).
+
+Generate a complete, rigorous, high-quality MathTerm JSON object for this concept.
+Strict requirements:
+- term: Official English title case term (e.g. "Inscribed circle", "Pythagorean triple", "Geometric progression")
+- category: Exactly one of ["number_theory", "geometry", "algebra", "combinatorics"]
+- phonetic: Standard IPA phonetics notation (e.g. "/ɪnˈskraɪbd ˈsɜː.kəl/")
+- partOfSpeech: "noun" | "noun phrase" | "adjective"
+- vietnameseMeaning: Accurate, standard Vietnamese math term (e.g. "Đường tròn nội tiếp")
+- mathDefinition: Formal, clear English definition (1-2 sentences)
+- vietnameseDefinition: Clear pedagogical Vietnamese math explanation
+- formulaOrRule: Standard mathematical formula or theorem in clean KaTeX LaTeX format (e.g. "r = \\\\frac{A}{s}; \\\\quad s = \\\\frac{a+b+c}{2}")
+- olympiadWordProblem: A realistic contest word problem from TIMO, ASMO, SASMO, or HKIMO in English with Vietnamese translation in parentheses
+- solution: Step-by-step mathematical reasoning and final answer
+- etymology: Greek / Latin root words, historical context, and mnemonic memory hook for students
+- targetGrades: "Lớp 6 - 9" (or specific grades like "Lớp 7 - 8")
+- olympiadExam: "TIMO / SASMO" (or "ASMO", "HKIMO")
+
+Return ONLY a valid JSON object matching this schema without any markdown formatting around it:
+{
+  "term": "...",
+  "category": "geometry",
+  "phonetic": "...",
+  "partOfSpeech": "noun",
+  "vietnameseMeaning": "...",
+  "mathDefinition": "...",
+  "vietnameseDefinition": "...",
+  "formulaOrRule": "...",
+  "olympiadWordProblem": "...",
+  "solution": "...",
+  "etymology": "...",
+  "targetGrades": "Lớp 6 - 9",
+  "olympiadExam": "TIMO / SASMO"
+}`;
+
+      const response = await generateWithFallback(client, prompt, {
+        responseMimeType: 'application/json',
+        temperature: 0.5,
+      });
+
+      if (response.text) {
+        const termData = JSON.parse(response.text);
+        return res.json({ success: true, term: termData });
+      }
+
+      return res.status(500).json({ error: 'No data returned from AI' });
+    } catch (err: any) {
+      console.error('Term lookup error:', err);
+      return res.status(500).json({ error: 'Lỗi khi tra cứu thuật ngữ với AI', details: err?.message });
     }
   });
 
