@@ -1,0 +1,6 @@
+{
+  "name": "Math M32 - Sổ Tay Thuật Ngữ & Khái Niệm Toán Tiếng Anh",
+  "description": "Hệ thống học thuật ngữ và khái niệm Toán Tiếng Anh chuẩn Olympic (TIMO, ASMO, SASMO, HKIMO) tích hợp thuật toán Spaced Repetition SM-2 và Trợ lý AI Toán học.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

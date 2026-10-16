@@ -1,0 +1,50 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User account and personalized synchronized learning data for Math M32",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the user"
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Display name of the student"
+        },
+        "cardProgress": {
+          "type": "object",
+          "description": "SM-2 spaced repetition progress for all flashcards"
+        },
+        "customTerms": {
+          "type": "array",
+          "description": "Custom or AI-generated math terms added by the user"
+        },
+        "stats": {
+          "type": "object",
+          "description": "Pedagogical learning statistics and streak counter"
+        },
+        "theme": {
+          "type": "string",
+          "description": "Selected eye-care theme (paper or night)"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp of the last synchronization"
+        }
+      },
+      "required": ["userId", "email"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Private learning profile and multi-device synchronized learning state"
+    }
+  }
+}
