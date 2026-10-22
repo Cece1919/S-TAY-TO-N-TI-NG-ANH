@@ -91,53 +91,71 @@ export const GeometryDiagram: React.FC<GeometryDiagramProps> = ({
   let diagramContent: React.ReactNode = null;
 
   if (termLower.includes('inscribed') || termLower.includes('nội tiếp') || termLower.includes('incircle')) {
-    // Inscribed circle in triangle
+    // Inscribed circle in triangle (Đường tròn nội tiếp tam giác)
+    // Mathematically exact: Isosceles triangle with base BC = 132 (y = 106), height h = 88, legs AB = AC = 110
+    // Semiperimeter s = 176, Area = 5808 => inradius r = 33, incenter I = (100, 73).
+    // Exact tangent points on all 3 sides:
+    // - Side BC: (100, 106)
+    // - Side AB: (73.6, 53.2)
+    // - Side AC: (126.4, 53.2)
     diagramContent = (
-      <svg viewBox="0 0 200 130" className="w-full h-full">
+      <svg viewBox="0 0 200 136" className="w-full h-full">
         {/* Triangle ABC */}
-        <polygon points="30,110 170,110 100,20" fill={fillColor} stroke={strokeColor} strokeWidth="2" />
-        {/* Inscribed circle */}
-        <circle cx="100" cy="80" r="30" fill="none" stroke={accentColor} strokeWidth="2" strokeDasharray="none" />
-        {/* Incenter I and radius r */}
-        <circle cx="100" cy="80" r="2.5" fill={auxColor} />
-        <line x1="100" y1="80" x2="100" y2="110" stroke={auxColor} strokeWidth="1.5" strokeDasharray="3,2" />
-        {/* Right angle at contact point */}
-        <rect x="100" y="103" width="7" height="7" fill="none" stroke={auxColor} strokeWidth="1" />
-        {/* Labels */}
-        <text x="100" y="14" fontSize="11" fill={textColor} textAnchor="middle" fontWeight="bold">A</text>
-        <text x="20" y="115" fontSize="11" fill={textColor} textAnchor="middle" fontWeight="bold">B</text>
-        <text x="180" y="115" fontSize="11" fill={textColor} textAnchor="middle" fontWeight="bold">C</text>
-        <text x="107" y="97" fontSize="10" fill={auxColor} fontWeight="bold">r</text>
-        <text x="94" y="78" fontSize="10" fill={textColor} fontWeight="bold">I</text>
-        <text x="100" y="125" fontSize="9" fill={accentColor} textAnchor="middle">r = A / s</text>
+        <polygon points="34,106 166,106 100,18" fill={fillColor} stroke={strokeColor} strokeWidth="2" strokeLinejoin="round" />
+        {/* Inscribed circle touching ALL three sides precisely */}
+        <circle cx="100" cy="73" r="33" fill="none" stroke={accentColor} strokeWidth="2" />
+        {/* Incenter I */}
+        <circle cx="100" cy="73" r="2.5" fill={auxColor} />
+        <text x="93" y="71" fontSize="10" fill={textColor} fontWeight="bold">I</text>
+        {/* Radii to all 3 sides demonstrating tangency */}
+        <line x1="100" y1="73" x2="100" y2="106" stroke={auxColor} strokeWidth="1.5" strokeDasharray="3,2" />
+        <line x1="100" y1="73" x2="73.6" y2="53.2" stroke={auxColor} strokeWidth="1" strokeDasharray="2,2" opacity="0.65" />
+        <line x1="100" y1="73" x2="126.4" y2="53.2" stroke={auxColor} strokeWidth="1" strokeDasharray="2,2" opacity="0.65" />
+        {/* Tangent points contact dots */}
+        <circle cx="100" cy="106" r="2" fill={accentColor} />
+        <circle cx="73.6" cy="53.2" r="2" fill={accentColor} />
+        <circle cx="126.4" cy="53.2" r="2" fill={accentColor} />
+        {/* Right angle at BC contact point */}
+        <rect x="100" y="99" width="7" height="7" fill="none" stroke={auxColor} strokeWidth="1" />
+        {/* Radius label */}
+        <text x="107" y="92" fontSize="10" fill={auxColor} fontWeight="bold">r</text>
+        {/* Vertex Labels */}
+        <text x="100" y="13" fontSize="11" fill={textColor} textAnchor="middle" fontWeight="bold">A</text>
+        <text x="23" y="110" fontSize="11" fill={textColor} textAnchor="middle" fontWeight="bold">B</text>
+        <text x="177" y="110" fontSize="11" fill={textColor} textAnchor="middle" fontWeight="bold">C</text>
+        {/* Formulas */}
+        <text x="100" y="122" fontSize="9.5" fill={accentColor} textAnchor="middle" fontWeight="bold">r = A / s</text>
+        <text x="100" y="132" fontSize="7.5" fill={textColor} textAnchor="middle" opacity="0.75">s = (a + b + c) / 2</text>
       </svg>
     );
   } else if (termLower.includes('circumscribed') || termLower.includes('ngoại tiếp') || termLower.includes('circumcircle')) {
-    // Circumscribed circle around triangle
+    // Circumscribed circle around triangle (Đường tròn ngoại tiếp)
+    // Mathematically exact: Center O(100, 65), Radius R = 50
+    // Vertices A(100, 15), B(60, 95), C(140, 95) all satisfy dx² + dy² = 50² = 2500
     diagramContent = (
-      <svg viewBox="0 0 200 130" className="w-full h-full">
+      <svg viewBox="0 0 200 136" className="w-full h-full">
         {/* Circumcircle */}
         <circle cx="100" cy="65" r="50" fill={fillColor} stroke={accentColor} strokeWidth="2" />
-        {/* Triangle on circle */}
-        <polygon points="56,88 144,88 100,15" fill="none" stroke={strokeColor} strokeWidth="2" />
+        {/* Triangle inscribed in circumcircle */}
+        <polygon points="60,95 140,95 100,15" fill="none" stroke={strokeColor} strokeWidth="2" strokeLinejoin="round" />
         {/* Circumcenter O and radius R */}
         <circle cx="100" cy="65" r="2.5" fill={auxColor} />
-        <line x1="100" y1="65" x2="144" y2="88" stroke={auxColor} strokeWidth="1.5" strokeDasharray="3,2" />
+        <line x1="100" y1="65" x2="140" y2="95" stroke={auxColor} strokeWidth="1.5" strokeDasharray="3,2" />
         {/* Labels */}
         <text x="100" y="10" fontSize="11" fill={textColor} textAnchor="middle" fontWeight="bold">A</text>
-        <text x="46" y="95" fontSize="11" fill={textColor} textAnchor="middle" fontWeight="bold">B</text>
-        <text x="154" y="95" fontSize="11" fill={textColor} textAnchor="middle" fontWeight="bold">C</text>
-        <text x="100" y="60" fontSize="10" fill={textColor} fontWeight="bold">O</text>
-        <text x="122" y="72" fontSize="10" fill={auxColor} fontWeight="bold">R</text>
-        <text x="100" y="125" fontSize="9" fill={accentColor} textAnchor="middle">R = abc / (4A)</text>
+        <text x="48" y="100" fontSize="11" fill={textColor} textAnchor="middle" fontWeight="bold">B</text>
+        <text x="152" y="100" fontSize="11" fill={textColor} textAnchor="middle" fontWeight="bold">C</text>
+        <text x="94" y="62" fontSize="10" fill={textColor} fontWeight="bold">O</text>
+        <text x="122" y="76" fontSize="10" fill={auxColor} fontWeight="bold">R</text>
+        <text x="100" y="123" fontSize="9.5" fill={accentColor} textAnchor="middle" fontWeight="bold">R = abc / (4A)</text>
       </svg>
     );
   } else if (termLower.includes('parallelogram') || termLower.includes('bình hành')) {
-    // Parallelogram
+    // Parallelogram (Hình bình hành)
     diagramContent = (
       <svg viewBox="0 0 200 130" className="w-full h-full">
         {/* Parallelogram */}
-        <polygon points="45,100 165,100 140,35 20,35" fill={fillColor} stroke={strokeColor} strokeWidth="2" />
+        <polygon points="45,100 165,100 140,35 20,35" fill={fillColor} stroke={strokeColor} strokeWidth="2" strokeLinejoin="round" />
         {/* Dashed altitude h */}
         <line x1="140" y1="35" x2="140" y2="100" stroke={auxColor} strokeWidth="1.5" strokeDasharray="3,2" />
         <rect x="133" y="93" width="7" height="7" fill="none" stroke={auxColor} strokeWidth="1" />
@@ -148,15 +166,15 @@ export const GeometryDiagram: React.FC<GeometryDiagramProps> = ({
         <text x="145" y="32" fontSize="10" fill={textColor}>B</text>
         <text x="172" y="105" fontSize="10" fill={textColor}>C</text>
         <text x="38" y="105" fontSize="10" fill={textColor}>D</text>
-        <text x="100" y="20" fontSize="9" fill={accentColor} textAnchor="middle">Area = b · h</text>
+        <text x="100" y="20" fontSize="9" fill={accentColor} textAnchor="middle" fontWeight="bold">Area = b · h</text>
       </svg>
     );
   } else if (termLower.includes('rhombus') || termLower.includes('thoi')) {
-    // Rhombus with diagonals
+    // Rhombus with diagonals (Hình thoi)
     diagramContent = (
       <svg viewBox="0 0 200 130" className="w-full h-full">
         {/* Rhombus ABCD */}
-        <polygon points="100,15 165,65 100,115 35,65" fill={fillColor} stroke={strokeColor} strokeWidth="2" />
+        <polygon points="100,15 165,65 100,115 35,65" fill={fillColor} stroke={strokeColor} strokeWidth="2" strokeLinejoin="round" />
         {/* Diagonals d1 and d2 */}
         <line x1="100" y1="15" x2="100" y2="115" stroke={accentColor} strokeWidth="1.5" />
         <line x1="35" y1="65" x2="165" y2="65" stroke={auxColor} strokeWidth="1.5" />
@@ -169,15 +187,15 @@ export const GeometryDiagram: React.FC<GeometryDiagramProps> = ({
         <text x="24" y="69" fontSize="10" fill={textColor} fontWeight="bold">D</text>
         <text x="105" y="45" fontSize="10" fill={accentColor} fontWeight="bold">d₁</text>
         <text x="130" y="60" fontSize="10" fill={auxColor} fontWeight="bold">d₂</text>
-        <text x="100" y="77" fontSize="9" fill={accentColor} textAnchor="middle">A = ½ d₁ d₂</text>
+        <text x="100" y="77" fontSize="9" fill={accentColor} textAnchor="middle" fontWeight="bold">A = ½ d₁ d₂</text>
       </svg>
     );
   } else if (termLower.includes('trapezoid') || termLower.includes('thang')) {
-    // Trapezoid with bases a, b and height h
+    // Trapezoid with bases a, b and height h (Hình thang)
     diagramContent = (
       <svg viewBox="0 0 200 130" className="w-full h-full">
         {/* Trapezoid */}
-        <polygon points="30,105 170,105 135,35 65,35" fill={fillColor} stroke={strokeColor} strokeWidth="2" />
+        <polygon points="30,105 170,105 135,35 65,35" fill={fillColor} stroke={strokeColor} strokeWidth="2" strokeLinejoin="round" />
         {/* Dashed altitude h */}
         <line x1="65" y1="35" x2="65" y2="105" stroke={auxColor} strokeWidth="1.5" strokeDasharray="3,2" />
         <rect x="65" y="98" width="7" height="7" fill="none" stroke={auxColor} strokeWidth="1" />
@@ -191,38 +209,68 @@ export const GeometryDiagram: React.FC<GeometryDiagramProps> = ({
       </svg>
     );
   } else if (termLower.includes('cyclic') || termLower.includes('tứ giác nội tiếp')) {
-    // Cyclic quadrilateral
+    // Cyclic quadrilateral (Tứ giác nội tiếp)
+    // Exact: Center (100, 65), Radius 50.
+    // Vertices on circle: A(70, 25), B(140, 35), C(130, 105), D(60, 95).
     diagramContent = (
-      <svg viewBox="0 0 200 130" className="w-full h-full">
+      <svg viewBox="0 0 200 135" className="w-full h-full">
         {/* Circle */}
-        <circle cx="100" cy="65" r="48" fill={fillColor} stroke={accentColor} strokeWidth="1.5" strokeDasharray="3,2" />
+        <circle cx="100" cy="65" r="50" fill={fillColor} stroke={accentColor} strokeWidth="1.5" strokeDasharray="3,2" />
         {/* Quadrilateral on circle */}
-        <polygon points="62,35 138,32 145,85 70,105" fill="none" stroke={strokeColor} strokeWidth="2" />
+        <polygon points="70,25 140,35 130,105 60,95" fill="none" stroke={strokeColor} strokeWidth="2" strokeLinejoin="round" />
+        {/* Vertices dots */}
+        <circle cx="70" cy="25" r="2" fill={textColor} />
+        <circle cx="140" cy="35" r="2" fill={textColor} />
+        <circle cx="130" cy="105" r="2" fill={textColor} />
+        <circle cx="60" cy="95" r="2" fill={textColor} />
         {/* Labels */}
-        <text x="55" y="30" fontSize="11" fill={textColor} fontWeight="bold">A (α)</text>
-        <text x="145" y="28" fontSize="11" fill={textColor} fontWeight="bold">B</text>
-        <text x="152" y="95" fontSize="11" fill={textColor} fontWeight="bold">C (180°-α)</text>
-        <text x="60" y="118" fontSize="11" fill={textColor} fontWeight="bold">D</text>
-        <text x="100" y="72" fontSize="9" fill={auxColor} textAnchor="middle">∠A + ∠C = 180°</text>
+        <text x="60" y="22" fontSize="11" fill={textColor} fontWeight="bold">A</text>
+        <text x="148" y="32" fontSize="11" fill={textColor} fontWeight="bold">B</text>
+        <text x="138" y="112" fontSize="11" fill={textColor} fontWeight="bold">C</text>
+        <text x="50" y="102" fontSize="11" fill={textColor} fontWeight="bold">D</text>
+        <text x="100" y="68" fontSize="9" fill={auxColor} textAnchor="middle" fontWeight="bold">∠A + ∠C = 180°</text>
+        <text x="100" y="125" fontSize="8.5" fill={accentColor} textAnchor="middle">∠B + ∠D = 180°</text>
       </svg>
     );
   } else if (termLower.includes('hypotenuse') || termLower.includes('pythagor') || termLower.includes('tam giác vuông') || termLower.includes('cạnh huyền')) {
-    // Right triangle with hypotenuse
+    // Right triangle with hypotenuse (Tam giác vuông & Cạnh huyền)
     diagramContent = (
       <svg viewBox="0 0 200 130" className="w-full h-full">
         {/* Right triangle */}
-        <polygon points="35,105 165,105 35,25" fill={fillColor} stroke={strokeColor} strokeWidth="2" />
+        <polygon points="40,105 160,105 40,25" fill={fillColor} stroke={strokeColor} strokeWidth="2" strokeLinejoin="round" />
         {/* Right angle symbol */}
-        <rect x="35" y="93" width="12" height="12" fill="none" stroke={accentColor} strokeWidth="1.5" />
+        <rect x="40" y="95" width="10" height="10" fill="none" stroke={auxColor} strokeWidth="1.5" />
         {/* Labels */}
-        <text x="22" y="65" fontSize="11" fill={textColor} fontWeight="bold">a</text>
+        <text x="26" y="65" fontSize="11" fill={textColor} fontWeight="bold">a</text>
         <text x="100" y="120" fontSize="11" fill={textColor} textAnchor="middle" fontWeight="bold">b</text>
         <text x="110" y="55" fontSize="11" fill={auxColor} fontWeight="bold">c (Hypotenuse)</text>
         <text x="100" y="72" fontSize="10" fill={accentColor} textAnchor="middle" fontWeight="bold">c² = a² + b²</text>
       </svg>
     );
-  } else if (termLower.includes('bisector') || termLower.includes('phân giác') || termLower.includes('trung trực')) {
-    // Perpendicular bisector or angle bisector
+  } else if (termLower.includes('phân giác') || termLower.includes('angle bisector')) {
+    // Angle bisector (Đường phân giác góc / tam giác)
+    // Ray AD bisecting angle A
+    diagramContent = (
+      <svg viewBox="0 0 200 135" className="w-full h-full">
+        {/* Triangle ABC */}
+        <polygon points="30,105 170,105 90,20" fill={fillColor} stroke={strokeColor} strokeWidth="2" strokeLinejoin="round" />
+        {/* Angle bisector AD */}
+        <line x1="90" y1="20" x2="108" y2="105" stroke={accentColor} strokeWidth="2" />
+        <circle cx="108" cy="105" r="2.5" fill={accentColor} />
+        {/* Angle arc marks at A */}
+        <path d="M 82 34 A 16 16 0 0 0 92 36" fill="none" stroke={auxColor} strokeWidth="1.5" />
+        <path d="M 94 36 A 16 16 0 0 0 102 33" fill="none" stroke={auxColor} strokeWidth="1.5" />
+        {/* Labels */}
+        <text x="90" y="14" fontSize="11" fill={textColor} textAnchor="middle" fontWeight="bold">A</text>
+        <text x="20" y="112" fontSize="11" fill={textColor} fontWeight="bold">B</text>
+        <text x="178" y="112" fontSize="11" fill={textColor} fontWeight="bold">C</text>
+        <text x="108" y="118" fontSize="10" fill={accentColor} textAnchor="middle" fontWeight="bold">D</text>
+        <text x="100" y="70" fontSize="9" fill={auxColor} textAnchor="middle">∠BAD = ∠CAD</text>
+        <text x="100" y="130" fontSize="9" fill={accentColor} textAnchor="middle" fontWeight="bold">DB / DC = AB / AC</text>
+      </svg>
+    );
+  } else if (termLower.includes('bisector') || termLower.includes('trung trực')) {
+    // Perpendicular bisector (Đường trung trực đoạn thẳng)
     diagramContent = (
       <svg viewBox="0 0 200 130" className="w-full h-full">
         {/* Segment AB */}
@@ -247,7 +295,7 @@ export const GeometryDiagram: React.FC<GeometryDiagramProps> = ({
       </svg>
     );
   } else if (termLower.includes('circle') || termLower.includes('tròn') || termLower.includes('circumference') || termLower.includes('radius') || termLower.includes('diameter')) {
-    // Circle with radius and diameter
+    // Circle with radius and diameter (Đường tròn, Chu vi & Bán kính)
     diagramContent = (
       <svg viewBox="0 0 200 130" className="w-full h-full">
         {/* Circle */}
@@ -269,7 +317,7 @@ export const GeometryDiagram: React.FC<GeometryDiagramProps> = ({
     diagramContent = (
       <svg viewBox="0 0 200 130" className="w-full h-full">
         {/* Triangle ABC */}
-        <polygon points="35,105 165,105 85,25" fill={fillColor} stroke={strokeColor} strokeWidth="2" />
+        <polygon points="35,105 165,105 85,25" fill={fillColor} stroke={strokeColor} strokeWidth="2" strokeLinejoin="round" />
         {/* Dashed altitude h */}
         <line x1="85" y1="25" x2="85" y2="105" stroke={auxColor} strokeWidth="1.5" strokeDasharray="3,2" />
         <rect x="85" y="97" width="8" height="8" fill="none" stroke={auxColor} strokeWidth="1" />
@@ -279,7 +327,7 @@ export const GeometryDiagram: React.FC<GeometryDiagramProps> = ({
         <text x="175" y="112" fontSize="11" fill={textColor} fontWeight="bold">C</text>
         <text x="93" y="65" fontSize="10" fill={auxColor} fontWeight="bold">h</text>
         <text x="100" y="120" fontSize="11" fill={textColor} textAnchor="middle">base (b)</text>
-        <text x="100" y="78" fontSize="9" fill={accentColor} textAnchor="middle">A = ½ b · h</text>
+        <text x="100" y="78" fontSize="9" fill={accentColor} textAnchor="middle" fontWeight="bold">A = ½ b · h</text>
       </svg>
     );
   }
@@ -301,7 +349,7 @@ export const GeometryDiagram: React.FC<GeometryDiagramProps> = ({
           <span className="text-[10px] font-mono text-slate-400">Vector SVG</span>
         </div>
       )}
-      <div className="w-full max-w-[280px] h-[125px] flex items-center justify-center">
+      <div className="w-full max-w-[280px] h-[135px] flex items-center justify-center">
         {diagramContent}
       </div>
     </div>

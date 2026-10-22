@@ -8,8 +8,24 @@ import { GoogleGenAI } from '@google/genai';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+function getPort(): number {
+  // Support --port <val> or -p <val> CLI arguments
+  const portArgIndex = process.argv.findIndex((arg) => arg === '--port' || arg === '-p');
+  if (portArgIndex !== -1 && process.argv[portArgIndex + 1]) {
+    const parsed = parseInt(process.argv[portArgIndex + 1], 10);
+    if (!isNaN(parsed) && parsed > 0) return parsed;
+  }
+  // In production, respect process.env.PORT
+  if (process.env.NODE_ENV === 'production' && process.env.PORT) {
+    const parsed = parseInt(process.env.PORT, 10);
+    if (!isNaN(parsed) && parsed > 0) return parsed;
+  }
+  // In dev / AI Studio preview, dev server must always run on port 3000
+  return 3000;
+}
+
+const PORT = getPort();
 const isProd = process.env.NODE_ENV === 'production';
-const PORT = parseInt(process.env.PORT || '3000', 10);
 
 const DATA_DIR = path.resolve(__dirname, 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
@@ -550,8 +566,16 @@ Return ONLY a valid JSON object matching this schema without any markdown format
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`Math M32 server running at http://0.0.0.0:${PORT}`);
+  });
+
+  server.on('error', (err: any) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`Port ${PORT} is already in use.`);
+    } else {
+      console.error('Server error:', err);
+    }
   });
 }
 
