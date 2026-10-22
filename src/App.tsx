@@ -20,9 +20,10 @@ import {
 } from './utils/storage';
 import { calculateNextState, isCardDue, getTodayString } from './utils/sm2';
 
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { User } from 'firebase/auth';
 import {
   auth,
+  onAuthStateChanged,
   saveUserDataToFirestore,
   loadUserDataFromFirestore,
   subscribeToUserData,
