@@ -1,8 +1,31 @@
+import audioManifest from '../data/audioManifest.json';
+
 export interface SpeechOptions {
   rate?: number; // 0.8 to 1.0
   pitch?: number;
   lang?: string;
   forceWebSpeech?: boolean;
+}
+
+// Global reference to active audio element for instant cancellation and pause
+let currentAudioElement: HTMLAudioElement | null = null;
+
+/**
+ * Resolves relative audio paths safely across all environments (root domain, GitHub Pages subfolder, local dev)
+ */
+function getAudioUrl(relativePath: string): string {
+  if (typeof window === 'undefined') return relativePath;
+  try {
+    const base = document.baseURI || window.location.href;
+    const cleanRel = relativePath.replace(/^\.?\//, '');
+    const url = new URL(base);
+    if (!url.pathname.endsWith('/') && !url.pathname.match(/\.[a-zA-Z0-9]+$/)) {
+      url.pathname += '/';
+    }
+    return new URL(cleanRel, url.href).href;
+  } catch {
+    return relativePath;
+  }
 }
 
 // Global references to prevent garbage collection of active speech utterances
@@ -132,8 +155,8 @@ export function convertMathToSpokenEnglish(raw: string): string {
 }
 
 /**
- * Returns the highest-fidelity natural/neural human voice available on the user's device.
- * Prioritizes Microsoft Online Natural, Apple Enhanced/Premium Siri, and Google HD voices.
+ * Returns the highest-fidelity natural/neural male human voice available on the user's device.
+ * Prioritizes deep, scholarly male neural voices (Brian, Guy, Ryan, Davis, Oliver, Daniel, Alex).
  */
 function getBestNaturalEnglishVoice(): SpeechSynthesisVoice | null {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
@@ -144,38 +167,35 @@ function getBestNaturalEnglishVoice(): SpeechSynthesisVoice | null {
   const enVoices = voices.filter((v) => v.lang.startsWith('en'));
   if (enVoices.length === 0) return voices[0] || null;
 
-  // Score each voice to find the highest fidelity neural/natural voice
+  // Score each voice to find the highest fidelity neural/natural male educator voice
   const scored = enVoices.map((v) => {
     let score = 0;
     const name = v.name.toLowerCase();
 
-    // 1. Microsoft Natural Online (Windows / Edge / macOS Edge)
+    // 1. Male Natural voices (Microsoft Brian, Guy, Ryan, Davis, Christopher, Oliver)
+    if (name.includes('brian')) score += 1500;
+    if (name.includes('guy') || name.includes('ryan') || name.includes('davis') || name.includes('christopher')) score += 1200;
     if (name.includes('natural') || name.includes('online (natural)')) score += 1000;
 
-    // 2. Apple Premium & Enhanced Neural (macOS / iOS / iPadOS)
+    // 2. Apple Male voices (Alex, Daniel, Oliver, Jamie, Fred)
+    if (name.includes('daniel') || name.includes('alex') || name.includes('oliver') || name.includes('jamie')) score += 950;
     if (name.includes('premium')) score += 850;
     if (name.includes('enhanced')) score += 750;
     if (name.includes('siri')) score += 600;
 
-    // 3. Google Neural / HD voices (Chrome / Android)
-    if (name.includes('google us english')) score += 700;
-    if (name.includes('google uk english female')) score += 680;
-    if (name.includes('google')) score += 500;
-
-    // 4. High quality named voices
-    if (name.includes('jenny')) score += 300;
-    if (name.includes('aria')) score += 280;
-    if (name.includes('guy')) score += 260;
-    if (name.includes('ava')) score += 250;
-    if (name.includes('samantha')) score += 200;
-    if (name.includes('zoe')) score += 200;
-    if (name.includes('daniel')) score += 180;
-    if (name.includes('karen')) score += 150;
-    if (name.includes('victoria')) score += 120;
+    // 3. Google Neural voices (Google US English Male)
+    if (name.includes('google us english') && !name.includes('female')) score += 800;
+    if (name.includes('google uk english male')) score += 800;
+    if (name.includes('google')) score += 400;
 
     // Penalize robotic compact / legacy voices
     if (name.includes('compact')) score -= 400;
     if (name.includes('desktop')) score -= 100;
+
+    // Penalize female voices when user requests deep male voice
+    if (name.includes('female') || name.includes('jenny') || name.includes('aria') || name.includes('ava') || name.includes('samantha') || name.includes('karen') || name.includes('victoria')) {
+      score -= 500;
+    }
 
     // Locale preference: en-US, en-GB
     if (v.lang === 'en-US') score += 50;
@@ -235,68 +255,58 @@ function splitIntoThoughtUnits(text: string): ThoughtUnit[] {
 }
 
 /**
- * Speaks English text using enhanced human-like prosody, dynamic pitch contouring,
- * and natural sentence cadence ("ngắt nghỉ, lên xuống giọng mượt mà").
+ * Enhanced Web Speech API synthesis with dynamic male prosody and natural pauses
  */
-export function speakEnglish(text: string, options: SpeechOptions = {}): boolean {
+function speakViaEnhancedWebSpeech(cleanSpoken: string, options: SpeechOptions = {}): boolean {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return false;
-
-  const cleanSpoken = convertMathToSpokenEnglish(text);
   if (!cleanSpoken) return false;
-
-  // Cancel any ongoing speech synthesis immediately
-  window.speechSynthesis.cancel();
-  activeUtterances.length = 0;
 
   try {
     const naturalVoice = getBestNaturalEnglishVoice();
     const thoughtUnits = splitIntoThoughtUnits(cleanSpoken);
     const baseRate = options.rate ?? 1.0;
-    const basePitch = options.pitch ?? 1.0;
+    // Set default base pitch to 0.92 for a deeper, resonant masculine educator tone
+    const basePitch = (options.pitch ?? 1.0) * 0.92;
 
     thoughtUnits.forEach((unit, idx) => {
       const utterance = new SpeechSynthesisUtterance(unit.text);
       utterance.lang = options.lang || 'en-US';
       if (naturalVoice) utterance.voice = naturalVoice;
 
-      // Fine-tune pitch contour and speech rate based on the linguistic role of each clause
       switch (unit.type) {
         case 'term':
-          // Single vocabulary term: articulate, scholarly pace, warm pitch
+          // Articulate, scholarly pace, deep warm tone
           utterance.rate = Math.max(0.75, Math.min(1.2, baseRate * 0.88));
-          utterance.pitch = Math.max(0.8, Math.min(1.3, basePitch * 1.02));
+          utterance.pitch = Math.max(0.7, Math.min(1.2, basePitch * 1.00));
           break;
 
         case 'intro':
-          // Introductory clause/condition: slightly higher engaging pitch, steady pace
+          // Introductory condition: engaging, steady pace
           utterance.rate = Math.max(0.75, Math.min(1.2, baseRate * 0.90));
-          utterance.pitch = Math.max(0.8, Math.min(1.3, basePitch * 1.03));
+          utterance.pitch = Math.max(0.7, Math.min(1.2, basePitch * 1.02));
           break;
 
         case 'question':
-          // Question prompt: rising question intonation contour
+          // Question prompt: subtle rising inflection
           utterance.rate = Math.max(0.75, Math.min(1.2, baseRate * 0.88));
-          utterance.pitch = Math.max(0.8, Math.min(1.3, basePitch * 1.05));
+          utterance.pitch = Math.max(0.7, Math.min(1.2, basePitch * 1.04));
           break;
 
         case 'conclusion':
-          // Concluding declarative sentence: gentle falling finality cadence
+          // Concluding sentence: calm falling cadence
           utterance.rate = Math.max(0.75, Math.min(1.2, baseRate * 0.87));
-          utterance.pitch = Math.max(0.8, Math.min(1.3, basePitch * 0.96));
+          utterance.pitch = Math.max(0.7, Math.min(1.2, basePitch * 0.94));
           break;
 
         case 'body':
         default:
-          // Explanatory body: balanced neutral delivery
           utterance.rate = Math.max(0.75, Math.min(1.2, baseRate * 0.90));
-          utterance.pitch = Math.max(0.8, Math.min(1.3, basePitch * 1.00));
+          utterance.pitch = Math.max(0.7, Math.min(1.2, basePitch * 0.98));
           break;
       }
 
-      // Memory retention to prevent garbage collection interrupts in Chrome / Safari
       activeUtterances.push(utterance);
 
-      // Clean up when the final utterance finishes
       if (idx === thoughtUnits.length - 1) {
         utterance.onend = () => {
           activeUtterances.length = 0;
@@ -311,9 +321,93 @@ export function speakEnglish(text: string, options: SpeechOptions = {}): boolean
 
     return true;
   } catch (err) {
-    console.warn('Speech synthesis error:', err);
+    console.warn('Web speech synthesis error:', err);
     return false;
   }
+}
+
+/**
+ * Speaks English text using studio-recorded neural male educator audio files (edge-tts BrianMultilingualNeural)
+ * for all 28 terms and 28 contest problems, with zero lag and instant playback.
+ * Seamlessly falls back to enhanced male Web Speech API synthesis for dynamic or unlisted text.
+ */
+export function speakEnglish(text: string, options: SpeechOptions = {}): boolean {
+  if (!text || typeof window === 'undefined') return false;
+
+  // 1. Immediately stop any currently playing studio audio element
+  if (currentAudioElement) {
+    try {
+      currentAudioElement.pause();
+      currentAudioElement.currentTime = 0;
+    } catch {
+      // Ignore
+    }
+    currentAudioElement = null;
+  }
+
+  // 2. Immediately cancel any ongoing Web Speech synthesis
+  if ('speechSynthesis' in window) {
+    try {
+      window.speechSynthesis.cancel();
+      activeUtterances.length = 0;
+    } catch {
+      // Ignore
+    }
+  }
+
+  const cleanSpoken = convertMathToSpokenEnglish(text);
+
+  // 3. Fast lookup in studio audio manifest (unless forced to use Web Speech)
+  if (!options.forceWebSpeech) {
+    const normRaw = text.trim().toLowerCase();
+    const normClean = cleanSpoken.trim().toLowerCase();
+    const manifest = audioManifest as Record<string, string>;
+
+    const matchedPath =
+      manifest[normRaw] ||
+      manifest[normClean] ||
+      manifest[normRaw.replace(/[.,?!]+$/, '')] ||
+      manifest[normClean.replace(/[.,?!]+$/, '')];
+
+    if (matchedPath) {
+      try {
+        const fullAudioUrl = getAudioUrl(matchedPath);
+        const audio = new Audio(fullAudioUrl);
+        if (options.rate) {
+          audio.playbackRate = Math.max(0.5, Math.min(2.0, options.rate));
+        }
+        currentAudioElement = audio;
+
+        audio.onended = () => {
+          if (currentAudioElement === audio) {
+            currentAudioElement = null;
+          }
+        };
+
+        audio.onerror = () => {
+          if (currentAudioElement === audio) {
+            currentAudioElement = null;
+          }
+          // Graceful fallback to enhanced Web Speech if media fails to load
+          speakViaEnhancedWebSpeech(cleanSpoken, options);
+        };
+
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((err) => {
+            console.warn('Studio audio playback error, falling back to Web Speech:', err);
+            speakViaEnhancedWebSpeech(cleanSpoken, options);
+          });
+        }
+        return true;
+      } catch (err) {
+        console.warn('Audio initialization error:', err);
+      }
+    }
+  }
+
+  // 4. Fallback to enhanced male Web Speech API
+  return speakViaEnhancedWebSpeech(cleanSpoken, options);
 }
 
 /**

@@ -88,8 +88,7 @@ export const FlashcardTab: React.FC<FlashcardTabProps> = ({
     (e?: React.MouseEvent) => {
       e?.stopPropagation();
       if (!currentTerm) return;
-      const cleanEnglishProblem = currentTerm.olympiadWordProblem.split('(')[0]?.trim();
-      speakEnglish(cleanEnglishProblem, { rate: speechRate });
+      speakEnglish(currentTerm.olympiadWordProblem, { rate: speechRate });
     },
     [currentTerm, speechRate]
   );
