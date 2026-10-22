@@ -5,15 +5,18 @@ export interface SpeechOptions {
   forceWebSpeech?: boolean;
 }
 
-// Track active audio element to avoid overlapping speech
-let currentAudioElement: HTMLAudioElement | null = null;
+// Global references to prevent garbage collection of active speech utterances
+const activeUtterances: SpeechSynthesisUtterance[] = [];
 let cachedVoices: SpeechSynthesisVoice[] = [];
 
 // Pre-load voices on browser initialization
 if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
   const updateVoices = () => {
     try {
-      cachedVoices = window.speechSynthesis.getVoices();
+      const v = window.speechSynthesis.getVoices();
+      if (v && v.length > 0) {
+        cachedVoices = v;
+      }
     } catch {
       // Ignore
     }
@@ -23,198 +26,291 @@ if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
 }
 
 /**
- * Converts mathematical formulas, LaTeX symbols, and Olympic notation into natural spoken English
- * so speech sounds like an authentic human teacher rather than robotic syntax.
+ * Converts mathematical formulas, LaTeX symbols, units, geometry notations,
+ * and contest problem text into authentic, natural-sounding spoken English
+ * with human-like breathing pauses and pedagogical clarity.
  */
 export function convertMathToSpokenEnglish(raw: string): string {
   if (!raw) return '';
 
-  return raw
+  let text = raw
+    // 1. Remove Vietnamese text anywhere (e.g. parenthetical translations "- Tìm số nguyên tố...")
+    .replace(/\([^\)]*[\u00C0-\u1EF9][^\)]*\)/g, '')
+    // 2. Remove contest citation tags like (TIMO Grade 6), (SASMO Grade 8), (HKIMO Grade 7), (TIMO Grade 6-7)
+    .replace(/\((?:TIMO|ASMO|SASMO|HKIMO|SEAMO|AMC)[^)]*\)/gi, '')
+    // 3. Sequences: + ... + or + … + -> and so on up to
+    .replace(/\+\s*(?:\.\.\.|…)\s*\+\s*/g, ' plus, and so on up to, ')
+    // 4. Compound hyphens: 6-digit -> 6 digit, 25-meter -> 25 meter, 6-sided -> 6 sided
+    .replace(/(\d+)-([a-zA-Z]+)/g, '$1 $2')
+    // Clean remaining empty parentheses
+    .replace(/\(\s*\)/g, ' ')
+    // Fix trailing double punctuation like "? ." or ". ."
+    .replace(/([?!.])\s*[?!.]+/g, '$1');
+
+  // Term acronym expansion: (GCD) -> G, C, D; (LCM) -> L, C, M
+  text = text
+    .replace(/\(GCD\)/g, ', G, C, D')
+    .replace(/\(LCM\)/g, ', L, C, M');
+
+  // Math symbols & LaTeX
+  text = text
     // LaTeX fractions: \frac{a}{b} -> a over b
+    .replace(/\\frac\{1\}\{2\}/g, 'one half')
+    .replace(/\\frac\{1\}\{3\}/g, 'one third')
+    .replace(/\\frac\{1\}\{4\}/g, 'one quarter')
+    .replace(/\\frac\{3\}\{4\}/g, 'three quarters')
     .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '$1 over $2')
     // Square roots: \sqrt{x} -> square root of x
     .replace(/\\sqrt\{([^}]+)\}/g, 'square root of $1')
     .replace(/\\sqrt\[([^\]]+)\]\{([^}]+)\}/g, '$1th root of $2')
-    // Operators
-    .replace(/\\times|\\cdot/g, ' times ')
-    .replace(/\\div/g, ' divided by ')
-    .replace(/\\pm/g, ' plus or minus ')
-    .replace(/\\neq/g, ' is not equal to ')
-    .replace(/\\approx/g, ' is approximately ')
-    .replace(/\\le|\\leq/g, ' is less than or equal to ')
-    .replace(/\\ge|\\geq/g, ' is greater than or equal to ')
-    .replace(/\\pi/g, ' pi ')
-    .replace(/\\degree|\^\\circ/g, ' degrees ')
-    .replace(/\\angle/g, ' angle ')
-    .replace(/\\triangle/g, ' triangle ')
-    .replace(/\\perp/g, ' is perpendicular to ')
-    .replace(/\\parallel/g, ' is parallel to ')
+    // Relational operators & comparisons
+    .replace(/\\approx|≈/g, ' is approximately ')
+    .replace(/\\neq|≠|!=/g, ' is not equal to ')
+    .replace(/\\le|\\leq|<=|≤/g, ' is less than or equal to ')
+    .replace(/\\ge|\\geq|>=|≥/g, ' is greater than or equal to ')
+    .replace(/\\times|\\cdot|×/g, ' times ')
+    .replace(/\\div|÷/g, ' divided by ')
+    .replace(/\\pm|±/g, ' plus or minus ')
+    .replace(/\\pi|π/g, ' pi ')
+    .replace(/\\degree|\^\\circ|°/g, ' degrees ')
+    .replace(/\\perp|\\bot|⟂/g, ' is perpendicular to ')
+    .replace(/\\parallel|\/\//g, ' is parallel to ')
+    .replace(/\\triangle|△/g, ' triangle ')
+    .replace(/\\angle|∠/g, ' angle ')
     .replace(/\\gcd/g, ' greatest common divisor ')
     .replace(/\\lcm/g, ' least common multiple ')
     .replace(/\\equiv/g, ' is congruent to ')
     .replace(/\\pmod\{([^}]+)\}/g, ' modulo $1')
     .replace(/\\bmod/g, ' mod ')
-    // Exponents: a^2 -> a squared, a^3 -> a cubed, a^n -> a to the power of n
+    // Factorials: 25! (factorial of 25) -> 25 factorial
+    .replace(/(\d+)\!\s*(?:\(factorial of \d+\))?/gi, '$1 factorial')
+    // Exponents: cm² -> square centimeters, etc.
+    .replace(/\bcm\^2\b|cm²|square\s*cm\b/gi, 'square centimeters')
+    .replace(/\bm\^2\b|m²|square\s*m\b/gi, 'square meters')
+    .replace(/\bcm\^3\b|cm³/gi, 'cubic centimeters')
+    .replace(/\bm\^3\b|m³/gi, 'cubic meters')
     .replace(/\^2\b/g, ' squared')
     .replace(/\^3\b/g, ' cubed')
     .replace(/\^\{([^}]+)\}/g, ' to the power of $1')
     .replace(/\^([a-zA-Z0-9])/g, ' to the power of $1')
-    // Units
-    .replace(/\bcm\^2\b/g, 'square centimeters')
-    .replace(/\bm\^2\b/g, 'square meters')
+    // Units with numbers: 70 cm -> 70 centimeters, 440 meters
+    .replace(/(\d+)\s*cm\b/gi, '$1 centimeters')
+    .replace(/(\d+)\s*m\b/gi, '$1 meters')
+    .replace(/(\d+)\s*km\b/gi, '$1 kilometers')
+    .replace(/(\d+)\s*kg\b/gi, '$1 kilograms')
+    // Geometric points e.g. triangle ABC -> triangle A, B, C; segment AB -> segment A, B
+    .replace(/\b(triangle|triangles|angle|angles|segment|line|points)\s+([A-Z]{2,4})\b/g, (match, prefix, pts) => {
+      return `${prefix} ${pts.split('').join(', ')}`;
+    })
+    .replace(/\b([A-Z]{2})\s*=\s*([A-Z]{2})\b/g, (match, p1, p2) => {
+      return `${p1.split('').join(', ')} equals ${p2.split('').join(', ')}`;
+    })
+    // Multiplication in algebra parentheses: 3(x - 2) -> 3 times, (x minus 2) - only if operator or single variable inside
+    .replace(/(\d+)\s*\((?=[^)]*(?:[+\-*/^=]|\b[a-zA-Z]\b\s*[+\-*/]))([^)]+)\)/g, '$1 times, ($2)')
+    // Relational equals & inequality in text: = -> equals, < -> is less than, > -> is greater than
+    .replace(/\s*=\s*/g, ' equals ')
+    .replace(/\s*<\s*/g, ' is less than ')
+    .replace(/\s*>\s*/g, ' is greater than ')
+    // Plus and Minus in equations
+    .replace(/\s*\+\s*/g, ' plus ')
+    .replace(/\s+-\s+/g, ' minus ')
+    // Simple fractions like 22/7 -> 22 over 7
+    .replace(/(\d+)\/(\d+)/g, '$1 over $2')
     // Clean residual LaTeX tags and formatting
     .replace(/\\text\{([^}]+)\}/g, '$1')
     .replace(/\\[a-zA-Z]+/g, ' ')
     .replace(/[\{\}\$\\_]/g, ' ')
+    // Normalize punctuation, spacing and commas for smooth prosodic breathing
+    .replace(/\s*,\s*/g, ', ')
+    .replace(/,\s*,+/g, ', ')
+    .replace(/\s+([.,?!])/g, '$1')
     .replace(/\s+/g, ' ')
+    .replace(/([?!.])\s*[?!.]+/g, '$1')
     .trim();
+
+  return text;
 }
 
 /**
- * Returns the highest-fidelity natural/neural human voice available on the user's device
+ * Returns the highest-fidelity natural/neural human voice available on the user's device.
+ * Prioritizes Microsoft Online Natural, Apple Enhanced/Premium Siri, and Google HD voices.
  */
 function getBestNaturalEnglishVoice(): SpeechSynthesisVoice | null {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
 
-  const voices = cachedVoices.length > 0 ? cachedVoices : window.speechSynthesis.getVoices();
+  const voices = cachedVoices && cachedVoices.length > 0 ? cachedVoices : window.speechSynthesis.getVoices();
   if (!voices || voices.length === 0) return null;
 
   const enVoices = voices.filter((v) => v.lang.startsWith('en'));
   if (enVoices.length === 0) return voices[0] || null;
 
-  // 1. Microsoft Online Natural voices (Edge/Chrome on Windows & Mac: Jenny, Aria, Guy)
-  const msNatural = enVoices.find(
-    (v) => v.name.includes('Natural') || v.name.includes('Online (Natural)')
-  );
-  if (msNatural) return msNatural;
+  // Score each voice to find the highest fidelity neural/natural voice
+  const scored = enVoices.map((v) => {
+    let score = 0;
+    const name = v.name.toLowerCase();
 
-  // 2. Google High-Definition US / UK English (Chrome / Android)
-  const googleNatural = enVoices.find(
-    (v) =>
-      v.name.includes('Google US English') ||
-      v.name.includes('Google UK English') ||
-      v.name.includes('Google')
-  );
-  if (googleNatural) return googleNatural;
+    // 1. Microsoft Natural Online (Windows / Edge / macOS Edge)
+    if (name.includes('natural') || name.includes('online (natural)')) score += 1000;
 
-  // 3. Apple Enhanced / Premium Siri Voices (Safari / iOS / macOS: Samantha Enhanced, Ava, Daniel)
-  const appleEnhanced = enVoices.find(
-    (v) => (v.name.includes('Enhanced') || v.name.includes('Premium')) && !v.name.includes('Compact')
-  );
-  if (appleEnhanced) return appleEnhanced;
+    // 2. Apple Premium & Enhanced Neural (macOS / iOS / iPadOS)
+    if (name.includes('premium')) score += 850;
+    if (name.includes('enhanced')) score += 750;
+    if (name.includes('siri')) score += 600;
 
-  // 4. Well-tuned human voices
-  const naturalNamed = enVoices.find((v) =>
-    ['Samantha', 'Daniel', 'Ava', 'Victoria', 'Karen', 'Oliver', 'Allison'].some((name) =>
-      v.name.includes(name)
-    )
-  );
-  if (naturalNamed) return naturalNamed;
+    // 3. Google Neural / HD voices (Chrome / Android)
+    if (name.includes('google us english')) score += 700;
+    if (name.includes('google uk english female')) score += 680;
+    if (name.includes('google')) score += 500;
 
-  // 5. Standard US / UK English
-  const usGb = enVoices.find((v) => v.lang === 'en-US' || v.lang === 'en-GB');
-  if (usGb) return usGb;
+    // 4. High quality named voices
+    if (name.includes('jenny')) score += 300;
+    if (name.includes('aria')) score += 280;
+    if (name.includes('guy')) score += 260;
+    if (name.includes('ava')) score += 250;
+    if (name.includes('samantha')) score += 200;
+    if (name.includes('zoe')) score += 200;
+    if (name.includes('daniel')) score += 180;
+    if (name.includes('karen')) score += 150;
+    if (name.includes('victoria')) score += 120;
 
-  return enVoices[0];
+    // Penalize robotic compact / legacy voices
+    if (name.includes('compact')) score -= 400;
+    if (name.includes('desktop')) score -= 100;
+
+    // Locale preference: en-US, en-GB
+    if (v.lang === 'en-US') score += 50;
+    else if (v.lang === 'en-GB') score += 40;
+
+    if (v.default && score > 0) score += 20;
+
+    return { voice: v, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored[0]?.voice || enVoices[0];
 }
 
-// In-memory audio cache for high-fidelity studio voice clips
-const audioCache = new Map<string, string>();
+interface ThoughtUnit {
+  text: string;
+  type: 'term' | 'intro' | 'question' | 'conclusion' | 'body';
+}
 
 /**
- * Speaks English text using studio-quality neural native speech with fallback
+ * Splits text into natural thought and breath units for prosodic inflection
+ */
+function splitIntoThoughtUnits(text: string): ThoughtUnit[] {
+  // If it's a short title/term (<= 4 words without sentence punctuation), keep as single unit
+  const wordCount = text.split(/\s+/).length;
+  if (wordCount <= 4 && !/[.?!]/.test(text)) {
+    return [{ text, type: 'term' }];
+  }
+
+  // Split on sentence boundaries
+  const rawUnits = text
+    .split(/(?<=[.?!;])\s+(?=[A-Z0-9"'])/g)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  if (rawUnits.length <= 1) {
+    // Check for compound sentences with introductory condition
+    const compoundMatch = text.match(/^(.*?[,;])\s+(find\b.*|what\b.*|how\b.*|calculate\b.*|determine\b.*)$/i);
+    if (compoundMatch) {
+      return [
+        { text: compoundMatch[1], type: 'intro' },
+        { text: compoundMatch[2], type: 'question' },
+      ];
+    }
+    const isQ = text.endsWith('?') || /^(find|what|how|calculate|determine|show)\b/i.test(text);
+    return [{ text, type: isQ ? 'question' : 'body' }];
+  }
+
+  return rawUnits.map((unit, idx) => {
+    const isLast = idx === rawUnits.length - 1;
+    const isFirst = idx === 0;
+    const isQuestion = unit.endsWith('?') || /^(find|what|how|calculate|determine|show)\b/i.test(unit);
+
+    if (isQuestion) return { text: unit, type: 'question' };
+    if (isFirst && rawUnits.length > 1) return { text: unit, type: 'intro' };
+    if (isLast) return { text: unit, type: 'conclusion' };
+    return { text: unit, type: 'body' };
+  });
+}
+
+/**
+ * Speaks English text using enhanced human-like prosody, dynamic pitch contouring,
+ * and natural sentence cadence ("ngắt nghỉ, lên xuống giọng mượt mà").
  */
 export function speakEnglish(text: string, options: SpeechOptions = {}): boolean {
-  if (typeof window === 'undefined') return false;
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return false;
 
   const cleanSpoken = convertMathToSpokenEnglish(text);
   if (!cleanSpoken) return false;
 
-  // Cancel any ongoing audio playback
-  if (currentAudioElement) {
-    try {
-      currentAudioElement.pause();
-      currentAudioElement.currentTime = 0;
-    } catch {
-      // Ignore
-    }
-    currentAudioElement = null;
-  }
-
-  if ('speechSynthesis' in window) {
-    window.speechSynthesis.cancel();
-  }
-
-  // 1. Check if high-definition neural studio audio is in cache
-  const cachedUrl = audioCache.get(cleanSpoken);
-  if (cachedUrl) {
-    try {
-      const audio = new Audio(cachedUrl);
-      currentAudioElement = audio;
-      audio.playbackRate = options.rate ?? 1.0;
-      audio.play().catch(() => {
-        speakViaEnhancedWebSpeech(cleanSpoken, options);
-      });
-      return true;
-    } catch {
-      // fallback
-    }
-  }
-
-  // 2. Fetch authentic, lifelike human voice from Gemini TTS
-  if (!options.forceWebSpeech) {
-    fetch('/api/ai/tts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: cleanSpoken, voice: 'Kore' }),
-    })
-      .then(async (res) => {
-        if (!res.ok) throw new Error('Server TTS response not OK');
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        audioCache.set(cleanSpoken, url);
-
-        if (currentAudioElement) {
-          try {
-            currentAudioElement.pause();
-          } catch {
-            // Ignore
-          }
-        }
-        const audio = new Audio(url);
-        currentAudioElement = audio;
-        audio.playbackRate = options.rate ?? 1.0;
-        return audio.play();
-      })
-      .catch((err) => {
-        // Fallback gracefully to enhanced browser voice
-        console.warn('Falling back to local natural speech engine:', err);
-        speakViaEnhancedWebSpeech(cleanSpoken, options);
-      });
-
-    return true;
-  }
-
-  // Method 2: Enhanced Web Speech Engine with highest-ranking natural voice
-  return speakViaEnhancedWebSpeech(cleanSpoken, options);
-}
-
-function speakViaEnhancedWebSpeech(cleanText: string, options: SpeechOptions): boolean {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return false;
+  // Cancel any ongoing speech synthesis immediately
+  window.speechSynthesis.cancel();
+  activeUtterances.length = 0;
 
   try {
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.lang = options.lang || 'en-US';
-    // Natural cadence: 0.92x is crisp, scholarly and perfectly intelligible
-    utterance.rate = options.rate ?? 0.92;
-    utterance.pitch = options.pitch ?? 1.0;
-
     const naturalVoice = getBestNaturalEnglishVoice();
-    if (naturalVoice) {
-      utterance.voice = naturalVoice;
-    }
+    const thoughtUnits = splitIntoThoughtUnits(cleanSpoken);
+    const baseRate = options.rate ?? 1.0;
+    const basePitch = options.pitch ?? 1.0;
 
-    window.speechSynthesis.speak(utterance);
+    thoughtUnits.forEach((unit, idx) => {
+      const utterance = new SpeechSynthesisUtterance(unit.text);
+      utterance.lang = options.lang || 'en-US';
+      if (naturalVoice) utterance.voice = naturalVoice;
+
+      // Fine-tune pitch contour and speech rate based on the linguistic role of each clause
+      switch (unit.type) {
+        case 'term':
+          // Single vocabulary term: articulate, scholarly pace, warm pitch
+          utterance.rate = Math.max(0.75, Math.min(1.2, baseRate * 0.88));
+          utterance.pitch = Math.max(0.8, Math.min(1.3, basePitch * 1.02));
+          break;
+
+        case 'intro':
+          // Introductory clause/condition: slightly higher engaging pitch, steady pace
+          utterance.rate = Math.max(0.75, Math.min(1.2, baseRate * 0.90));
+          utterance.pitch = Math.max(0.8, Math.min(1.3, basePitch * 1.03));
+          break;
+
+        case 'question':
+          // Question prompt: rising question intonation contour
+          utterance.rate = Math.max(0.75, Math.min(1.2, baseRate * 0.88));
+          utterance.pitch = Math.max(0.8, Math.min(1.3, basePitch * 1.05));
+          break;
+
+        case 'conclusion':
+          // Concluding declarative sentence: gentle falling finality cadence
+          utterance.rate = Math.max(0.75, Math.min(1.2, baseRate * 0.87));
+          utterance.pitch = Math.max(0.8, Math.min(1.3, basePitch * 0.96));
+          break;
+
+        case 'body':
+        default:
+          // Explanatory body: balanced neutral delivery
+          utterance.rate = Math.max(0.75, Math.min(1.2, baseRate * 0.90));
+          utterance.pitch = Math.max(0.8, Math.min(1.3, basePitch * 1.00));
+          break;
+      }
+
+      // Memory retention to prevent garbage collection interrupts in Chrome / Safari
+      activeUtterances.push(utterance);
+
+      // Clean up when the final utterance finishes
+      if (idx === thoughtUnits.length - 1) {
+        utterance.onend = () => {
+          activeUtterances.length = 0;
+        };
+        utterance.onerror = () => {
+          activeUtterances.length = 0;
+        };
+      }
+
+      window.speechSynthesis.speak(utterance);
+    });
+
     return true;
   } catch (err) {
     console.warn('Speech synthesis error:', err);
