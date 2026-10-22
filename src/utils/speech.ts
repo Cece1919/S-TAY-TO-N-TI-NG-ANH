@@ -205,11 +205,9 @@ function splitIntoThoughtUnits(text: string): ThoughtUnit[] {
     return [{ text, type: 'term' }];
   }
 
-  // Split on sentence boundaries
-  const rawUnits = text
-    .split(/(?<=[.?!;])\s+(?=[A-Z0-9"'])/g)
-    .map((s) => s.trim())
-    .filter(Boolean);
+  // Split on sentence boundaries (Safari/WebKit 100% compatible - no regex lookbehind)
+  const matches = text.match(/[^.?!;]+[.?!;]+(?:\s+|$)|[^.?!;]+$/g);
+  const rawUnits = matches ? matches.map((s) => s.trim()).filter(Boolean) : [text];
 
   if (rawUnits.length <= 1) {
     // Check for compound sentences with introductory condition
